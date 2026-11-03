@@ -21,7 +21,7 @@
     --pw:300px; --ph:400px;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%}
+  html,body{height:100%;overflow:hidden;max-width:100vw}
   body{
     background:radial-gradient(ellipse at 50% 30%, #f8ebe1 0%, var(--bg) 55%, var(--bg2) 100%);
     color:var(--ink);
@@ -50,7 +50,7 @@
   .book.at-start{transform:translateX(calc(var(--pw)*-0.5))}
   .book.at-end{transform:translateX(calc(var(--pw)*0.5))}
   .mobile .book{width:var(--pw)}
-  .mobile .book.at-start,.mobile .book.at-end{transform:none}
+  .mobile .book,.mobile .book.at-start,.mobile .book.at-end{transform:none !important}
 
   .leaf{position:absolute;top:0;left:50%;width:50%;height:100%;
     transform-origin:left center;transform-style:preserve-3d;
@@ -66,8 +66,6 @@
     background:linear-gradient(90deg, rgba(150,95,75,.16) 0%, rgba(150,95,75,0) 7%), var(--paper)}
   .face.back{transform:rotateY(180deg);border-radius:10px 2px 2px 10px;
     background:linear-gradient(270deg, rgba(150,95,75,.16) 0%, rgba(150,95,75,0) 7%), var(--paper)}
-  .face::after{content:"";position:absolute;inset:0;pointer-events:none;
-    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 .55 0 0 0 0 .4 0 0 0 0 .3 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E")}
 
   .page{position:absolute;inset:0;padding:calc(var(--pw)*.09);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
   .num{position:absolute;bottom:calc(var(--ph)*.03);left:0;right:0;text-align:center;font-size:calc(var(--pw)*.04);color:var(--ink-soft);font-style:italic;opacity:.8}
@@ -93,7 +91,7 @@
   .photo{padding:calc(var(--pw)*.1) calc(var(--pw)*.1) calc(var(--ph)*.08)}
   .polaroid{background:#fff;padding:calc(var(--pw)*.035) calc(var(--pw)*.035) 0;box-shadow:0 10px 24px -10px rgba(110,60,45,.4),0 1px 3px rgba(110,60,45,.12);
     width:100%;display:flex;flex-direction:column;position:relative}
-  .polaroid img{width:100%;aspect-ratio:3/3.6;object-fit:cover;display:block;filter:saturate(.92) sepia(.08) brightness(1.02);background:var(--blush)}
+  .polaroid img{width:100%;aspect-ratio:3/3.6;object-fit:cover;display:block;background:var(--blush)}
   .polaroid figcaption{font-family:"Marck Script",cursive;color:var(--ink);font-size:calc(var(--pw)*.064);line-height:1.15;padding:calc(var(--pw)*.025) 0 calc(var(--pw)*.03)}
   .tape{position:absolute;top:calc(var(--pw)*-.035);left:50%;width:calc(var(--pw)*.28);height:calc(var(--pw)*.07);transform:translateX(-50%) rotate(-3deg);
     background:rgba(243,207,195,.75);box-shadow:0 1px 2px rgba(0,0,0,.06)}
@@ -158,12 +156,12 @@
   /* controls */
   .controls{display:flex;align-items:center;gap:22px;color:var(--ink-soft);font-style:italic;font-size:17px}
   .controls button{width:46px;height:46px;border-radius:50%;border:1px solid rgba(192,122,106,.35);background:rgba(252,245,239,.7);
-    color:var(--rose-deep);font-size:20px;cursor:pointer;transition:background .2s,transform .2s,opacity .2s;backdrop-filter:blur(4px)}
+    color:var(--rose-deep);font-size:20px;cursor:pointer;transition:background .2s,transform .2s,opacity .2s;}
   .controls button:hover{background:#fff;transform:scale(1.06)}
   .controls button:disabled{opacity:.3;cursor:default;transform:none}
   .counter{min-width:70px;text-align:center}
   .music{position:fixed;top:16px;right:16px;z-index:5;width:44px;height:44px;border-radius:50%;border:1px solid rgba(192,122,106,.35);
-    background:rgba(252,245,239,.75);color:var(--rose-deep);font-size:19px;cursor:pointer;backdrop-filter:blur(4px);transition:opacity .3s,transform .2s}
+    background:rgba(252,245,239,.75);color:var(--rose-deep);font-size:19px;cursor:pointer;;transition:opacity .3s,transform .2s}
   .music:hover{transform:scale(1.06)}
   .music.off{opacity:.45;text-decoration:line-through}
   .music.on span{display:inline-block;animation:beat 1.6s ease-in-out infinite}
@@ -171,7 +169,7 @@
 </head>
 <body>
 <div class="petals" id="petals"></div>
-<audio id="song" src="song.mp3" loop preload="auto"></audio>
+<audio id="song" src="song.mp3" loop preload="none"></audio>
 <button class="music" id="musicBtn" aria-label="Музыка"><span>♪</span></button>
 
 <div class="stage" id="stage">
@@ -312,6 +310,13 @@ function currentPageIndex(){
 
 function layoutZ(){
   leaves.forEach((l,k)=>{ l.style.zIndex = k<pos ? k+1 : leaves.length*2 - k; });
+  cull();
+}
+
+// phones run out of memory with every page alive in 3D, so only pages
+// next to the current one stay rendered
+function cull(){
+  leaves.forEach((l,k)=>{ l.style.display = (k >= pos-2 && k <= pos+2) ? '' : 'none'; });
 }
 
 let busy = false;
@@ -329,6 +334,7 @@ function go(dir){
     l.classList.remove('flipped');
   }
   pos = target;
+  cull();
   syncVideo();
   clearTimeout(go.t);
   go.t = setTimeout(layoutZ, 1150);
@@ -427,7 +433,7 @@ function bindHeart(){
 }
 
 function size(){
-  const W = window.innerWidth, H = window.innerHeight;
+  const W = document.documentElement.clientWidth || window.innerWidth, H = document.documentElement.clientHeight || window.innerHeight;
   const isMobile = W < 760 || W/H < 1.05;
   let ph = Math.min(H*0.74, 720);
   let pw = ph*0.75;
