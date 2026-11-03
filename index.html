@@ -162,10 +162,17 @@
   .controls button:hover{background:#fff;transform:scale(1.06)}
   .controls button:disabled{opacity:.3;cursor:default;transform:none}
   .counter{min-width:70px;text-align:center}
+  .music{position:fixed;top:16px;right:16px;z-index:5;width:44px;height:44px;border-radius:50%;border:1px solid rgba(192,122,106,.35);
+    background:rgba(252,245,239,.75);color:var(--rose-deep);font-size:19px;cursor:pointer;backdrop-filter:blur(4px);transition:opacity .3s,transform .2s}
+  .music:hover{transform:scale(1.06)}
+  .music.off{opacity:.45;text-decoration:line-through}
+  .music.on span{display:inline-block;animation:beat 1.6s ease-in-out infinite}
 </style>
 </head>
 <body>
 <div class="petals" id="petals"></div>
+<audio id="song" src="song.mp3" loop preload="auto"></audio>
+<button class="music" id="musicBtn" aria-label="Музыка"><span>♪</span></button>
 
 <div class="stage" id="stage">
   <div class="title-top" id="titleTop">для самого дорогого человека</div>
@@ -333,9 +340,39 @@ function syncVideo(){
   if(!v) return;
   const leaf = v.closest('.leaf'), k = leaves.indexOf(leaf);
   const visible = v.closest('.back') ? pos===k+1 : pos===k;
-  if(visible){ v.currentTime = 0; const p = v.play(); if(p) p.catch(()=>{}); }
-  else v.pause();
+  if(visible){ music.duck(true); v.currentTime = 0; const p = v.play(); if(p) p.catch(()=>{}); }
+  else { v.pause(); music.duck(false); }
 }
+
+// background song: starts on the first tap (browsers block sound before that),
+// fades out while the movie clip is on screen, fades back in after
+const music = (()=>{
+  const a = document.getElementById('song'), btn = document.getElementById('musicBtn');
+  const VOL = 0.55;
+  let muted = false, ducked = false, started = false, fadeT = null;
+  a.volume = 0;
+  function fadeTo(target, ms, then){
+    clearInterval(fadeT);
+    const start = a.volume, t0 = performance.now();
+    fadeT = setInterval(()=>{
+      const k = Math.min(1, (performance.now()-t0)/ms);
+      a.volume = Math.max(0, Math.min(1, start + (target-start)*k));
+      if(k>=1){ clearInterval(fadeT); then && then(); }
+    }, 30);
+  }
+  function apply(){
+    btn.className = 'music ' + (muted ? 'off' : 'on');
+    if(!started) return;
+    if(muted || ducked) fadeTo(0, 700, ()=>a.pause());
+    else { const p = a.play(); if(p) p.catch(()=>{}); fadeTo(VOL, 1200); }
+  }
+  function kick(){ if(started) return; started = true; apply(); }
+  ['pointerdown','touchstart','keydown'].forEach(ev=>document.addEventListener(ev, kick, {once:true, passive:true}));
+  btn.addEventListener('click', e=>{ e.stopPropagation(); muted = !muted; started = true; apply(); });
+  btn.addEventListener('pointerdown', e=>e.stopPropagation());
+  btn.className = 'music on';
+  return { duck(on){ if(ducked===on) return; ducked = on; apply(); } };
+})();
 
 function update(){
   const max = leaves.length-1;
@@ -355,6 +392,7 @@ function bindVideo(){
   const film = document.getElementById('film');
   ['click','touchend','pointerup'].forEach(ev=>film.addEventListener(ev, e=>e.stopPropagation()));
   v.addEventListener('error', ()=>film.classList.add('missing'));
+  v.addEventListener('play', ()=>music.duck(true));
 }
 
 function bindHeart(){
